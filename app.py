@@ -3,6 +3,35 @@ from googletrans import Translator
 from pyAutoSummarizer.base import summarization
 import re
 
+# Set background color for the page
+st.markdown("""
+    <style>
+    .css-18e3th9 {
+        background-color: #f0f4f8;
+    }
+    .css-1q8dd3e {
+        background-color: #ffffff;
+    }
+    .css-1v3fvcr {
+        background-color: #e0e5ec;
+    }
+    .css-16hknw2 {
+        color: #2e3d49;
+    }
+    .css-1f2y6ar button {
+        background-color: #007bff;
+        color: white;
+        border-radius: 5px;
+        border: none;
+        padding: 10px 20px;
+        cursor: pointer;
+    }
+    .css-1f2y6ar button:hover {
+        background-color: #0056b3;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 translator = Translator()
 
 # Initialize session state
@@ -70,7 +99,7 @@ def summarize_with_pyAutoSummarizer_ko(text, num_sentences=3, stop_words_lang='k
         return ""
 
 # Streamlit UI Setup
-st.title("EnKoreS")
+st.title("EnKoreS", anchor="top")
 st.sidebar.markdown("### Translation and Summarization App")
 
 # Language Selection
@@ -84,7 +113,7 @@ if lang_direction != st.session_state.lang_direction:
     st.session_state.summarized_text = ""
 
 # Input Text Area
-st.session_state.input_text = st.text_area("Enter text to translate:", value=st.session_state.input_text)
+st.session_state.input_text = st.text_area("Enter text to translate:", value=st.session_state.input_text, height=200)
 
 # Translate Button
 if st.button("Translate"):
