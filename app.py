@@ -1,6 +1,4 @@
 import streamlit as st
-import speech_recognition as sr
-import pyttsx3
 from googletrans import Translator
 from pyAutoSummarizer.base import summarization
 import re
@@ -71,16 +69,8 @@ def summarize_with_pyAutoSummarizer_ko(text, num_sentences=3, stop_words_lang='k
         st.error(f"Error during summarization: {e}")
         return ""
 
-# Initialize Text-to-Speech Engine
-engine = pyttsx3.init()
-
-# Function to convert text to speech
-def speak(text):
-    engine.say(text)
-    engine.runAndWait()
-
 # Streamlit UI Setup
-st.title("EnKoreS with Voice Translation")
+st.title("EnKoreS")
 st.sidebar.markdown("### Translation and Summarization App")
 
 # Language Selection
@@ -96,20 +86,6 @@ if lang_direction != st.session_state.lang_direction:
 # Input Text Area
 st.session_state.input_text = st.text_area("Enter text to translate:", value=st.session_state.input_text)
 
-# Add a Button to Record Voice Input
-if st.button("Record Voice"):
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("Listening...")
-        audio = recognizer.listen(source)
-        try:
-            # Recognize the speech
-            text = recognizer.recognize_google(audio)
-            st.session_state.input_text = text
-            st.write(f"Voice input detected: {text}")
-        except Exception as e:
-            st.error(f"Sorry, I couldn't understand the audio. Error: {e}")
-
 # Translate Button
 if st.button("Translate"):
     if st.session_state.input_text.strip():
@@ -118,7 +94,6 @@ if st.button("Translate"):
         st.session_state.translated_text = translate_text_google(st.session_state.input_text, src_lang, tgt_lang)
         st.session_state.translated_text = add_spaces_between_sentences(st.session_state.translated_text)
         st.session_state.summarized_text = ""
-        speak(st.session_state.translated_text)  # Speak the translated text
 
 # Display Translated Text
 if st.session_state.translated_text:
@@ -133,7 +108,6 @@ if st.session_state.translated_text:
                 st.session_state.summarized_text = summarize_with_pyAutoSummarizer_ko(processed_text, stop_words_lang="ko")
             else:
                 st.session_state.summarized_text = summarize_with_pyAutoSummarizer_en(processed_text, stop_words_lang="en")
-            speak(st.session_state.summarized_text)  # Speak the summarized text
 
 # Display Summarized Text
 if st.session_state.summarized_text:
@@ -146,4 +120,3 @@ if st.session_state.summarized_text:
             tgt_lang = "ko" if st.session_state.lang_direction == "KO to EN" else "en"
             st.session_state.summarized_text = translate_text_google(st.session_state.summarized_text, src_lang, tgt_lang)
             st.session_state.summarized_text = add_spaces_between_sentences(st.session_state.summarized_text)
-            speak(st.session_state.summarized_text)  # Speak the translated summary
