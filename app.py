@@ -1,8 +1,7 @@
 import streamlit as st
 from googletrans import Translator
-from transformers import T5Tokenizer, T5ForConditionalGeneration
+from transformers import T5Tokenizer, T5ForConditionalGeneration, MarianMTModel, MarianTokenizer
 import re
-import time
 
 translator = Translator()
 
@@ -20,19 +19,28 @@ if "lang_direction" not in st.session_state:
 summarization_model = T5ForConditionalGeneration.from_pretrained("t5-small")
 summarization_tokenizer = T5Tokenizer.from_pretrained("t5-small", legacy=False)
 
+# Initialize MarianMT for translation (more reliable for multilingual text)
+translation_model = MarianMTModel.from_pretrained("Helsinki-NLP/opus-mt-en-ko")
+translation_tokenizer = MarianTokenizer.from_pretrained("Helsinki-NLP/opus-mt-en-ko")
+
 def add_spaces_between_sentences(text):
     text = re.sub(r'([.!?])(?=\S)', r'\1 ', text)
     return text
 
-def translate_text_google(input_text, src_lang, tgt_lang):
+def translate_text(input_text, src_lang, tgt_lang):
     try:
-        translation = translator.translate(input_text, src=src_lang, dest=tgt_lang)
-        return translation.text
+        if src_lang == 'en' and tgt_lang == 'ko':  # English to Korean
+            translated = translation_model.generate(**translation_tokenizer(input_text, return_tensors="pt", padding=True))
+            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
+        elif src_lang == 'ko' and tgt_lang == 'en':  # Korean to English
+            translated = translation_model.generate(**translation_tokenizer(input_text, return_tensors="pt", padding=True))
+            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
+        return translated_text
     except Exception as e:
         st.error(f"Error during translation: {e}")
         return ""
 
-def summarize_with_t5(text, num_sentences=3):
+def summarize_with_t5(text):
     try:
         # Encode the text using the T5 tokenizer
         inputs = summarization_tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=512, truncation=True)
@@ -40,7 +48,6 @@ def summarize_with_t5(text, num_sentences=3):
         summary_ids = summarization_model.generate(inputs, max_length=150, min_length=50, length_penalty=2.0, num_beams=4, early_stopping=True)
         # Decode the generated summary
         summary = summarization_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-        # Return the summary
         return summary
     except Exception as e:
         st.error(f"Error during summarization: {e}")
@@ -68,7 +75,7 @@ if st.button("Translate"):
     if st.session_state.input_text.strip():
         src_lang = "en" if st.session_state.lang_direction == "EN to KO" else "ko"
         tgt_lang = "ko" if st.session_state.lang_direction == "EN to KO" else "en"
-        st.session_state.translated_text = translate_text_google(st.session_state.input_text, src_lang, tgt_lang)
+        st.session_state.translated_text = translate_text(st.session_state.input_text, src_lang, tgt_lang)
         st.session_state.translated_text = add_spaces_between_sentences(st.session_state.translated_text)
         st.session_state.summarized_text = ""
 
@@ -92,7 +99,7 @@ if st.session_state.summarized_text:
         if st.session_state.summarized_text.strip():
             src_lang = "en" if st.session_state.lang_direction == "KO to EN" else "ko"
             tgt_lang = "ko" if st.session_state.lang_direction == "KO to EN" else "en"
-            st.session_state.summarized_text = translate_text_google(st.session_state.summarized_text, src_lang, tgt_lang)
+            st.session_state.summarized_text = translate_text(st.session_state.summarized_text, src_lang, tgt_lang)
             st.session_state.summarized_text = add_spaces_between_sentences(st.session_state.summarized_text)
 
 # Session State Initialization Improvements
