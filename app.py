@@ -1,8 +1,9 @@
 import streamlit as st
 from googletrans import Translator
-from transformers import T5Tokenizer, T5ForConditionalGeneration, MarianMTModel, MarianTokenizer
+from transformers import BartTokenizer, BartForConditionalGeneration
 import re
 
+# Initialize Google Translator
 translator = Translator()
 
 # Initialize session state
@@ -15,38 +16,29 @@ if "input_text" not in st.session_state:
 if "lang_direction" not in st.session_state:
     st.session_state.lang_direction = "EN to KO"
 
-# Initialize T5 model and tokenizer for summarization
-summarization_model = T5ForConditionalGeneration.from_pretrained("t5-small")
-summarization_tokenizer = T5Tokenizer.from_pretrained("t5-small", legacy=False)
+# Initialize BART model and tokenizer for summarization
+summarization_model = BartForConditionalGeneration.from_pretrained("facebook/bart-large-cnn")
+summarization_tokenizer = BartTokenizer.from_pretrained("facebook/bart-large-cnn")
 
-# Initialize MarianMT for translation (more reliable for multilingual text)
-translation_model = MarianMTModel.from_pretrained("Helsinki-NLP/opus-mt-en-ko")
-translation_tokenizer = MarianTokenizer.from_pretrained("Helsinki-NLP/opus-mt-en-ko")
-
+# Function to add spaces between sentences
 def add_spaces_between_sentences(text):
     text = re.sub(r'([.!?])(?=\S)', r'\1 ', text)
     return text
 
+# Function for translation (using googletrans)
 def translate_text(input_text, src_lang, tgt_lang):
     try:
-        if src_lang == 'en' and tgt_lang == 'ko':  # English to Korean
-            translated = translation_model.generate(**translation_tokenizer(input_text, return_tensors="pt", padding=True))
-            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
-        elif src_lang == 'ko' and tgt_lang == 'en':  # Korean to English
-            translated = translation_model.generate(**translation_tokenizer(input_text, return_tensors="pt", padding=True))
-            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
-        return translated_text
+        translated = translator.translate(input_text, src=src_lang, dest=tgt_lang)
+        return translated.text
     except Exception as e:
         st.error(f"Error during translation: {e}")
         return ""
 
-def summarize_with_t5(text):
+# Function to summarize text using BART
+def summarize_with_bart(text):
     try:
-        # Encode the text using the T5 tokenizer
-        inputs = summarization_tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=512, truncation=True)
-        # Generate the summary
+        inputs = summarization_tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
         summary_ids = summarization_model.generate(inputs, max_length=150, min_length=50, length_penalty=2.0, num_beams=4, early_stopping=True)
-        # Decode the generated summary
         summary = summarization_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         return summary
     except Exception as e:
@@ -88,7 +80,7 @@ if st.session_state.translated_text:
         if st.button("Summarize"):
             if st.session_state.translated_text.strip():
                 processed_text = add_spaces_between_sentences(st.session_state.translated_text)
-                st.session_state.summarized_text = summarize_with_t5(processed_text)
+                st.session_state.summarized_text = summarize_with_bart(processed_text)
 
 # Display Summarized Text
 if st.session_state.summarized_text:
