@@ -1,36 +1,9 @@
 import streamlit as st
+import speech_recognition as sr
+import pyttsx3
 from googletrans import Translator
 from pyAutoSummarizer.base import summarization
 import re
-
-# Set background color for the page
-st.markdown("""
-    <style>
-    .css-18e3th9 {
-        background-color: #f0f4f8;
-    }
-    .css-1q8dd3e {
-        background-color: #ffffff;
-    }
-    .css-1v3fvcr {
-        background-color: #e0e5ec;
-    }
-    .css-16hknw2 {
-        color: #2e3d49;
-    }
-    .css-1f2y6ar button {
-        background-color: #007bff;
-        color: white;
-        border-radius: 5px;
-        border: none;
-        padding: 10px 20px;
-        cursor: pointer;
-    }
-    .css-1f2y6ar button:hover {
-        background-color: #0056b3;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 translator = Translator()
 
@@ -98,8 +71,16 @@ def summarize_with_pyAutoSummarizer_ko(text, num_sentences=3, stop_words_lang='k
         st.error(f"Error during summarization: {e}")
         return ""
 
+# Initialize Text-to-Speech Engine
+engine = pyttsx3.init()
+
+# Function to convert text to speech
+def speak(text):
+    engine.say(text)
+    engine.runAndWait()
+
 # Streamlit UI Setup
-st.title("EnKoreS", anchor="top")
+st.title("EnKoreS with Voice Translation")
 st.sidebar.markdown("### Translation and Summarization App")
 
 # Language Selection
@@ -113,7 +94,21 @@ if lang_direction != st.session_state.lang_direction:
     st.session_state.summarized_text = ""
 
 # Input Text Area
-st.session_state.input_text = st.text_area("Enter text to translate:", value=st.session_state.input_text, height=200)
+st.session_state.input_text = st.text_area("Enter text to translate:", value=st.session_state.input_text)
+
+# Add a Button to Record Voice Input
+if st.button("Record Voice"):
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("Listening...")
+        audio = recognizer.listen(source)
+        try:
+            # Recognize the speech
+            text = recognizer.recognize_google(audio)
+            st.session_state.input_text = text
+            st.write(f"Voice input detected: {text}")
+        except Exception as e:
+            st.error(f"Sorry, I couldn't understand the audio. Error: {e}")
 
 # Translate Button
 if st.button("Translate"):
@@ -123,6 +118,7 @@ if st.button("Translate"):
         st.session_state.translated_text = translate_text_google(st.session_state.input_text, src_lang, tgt_lang)
         st.session_state.translated_text = add_spaces_between_sentences(st.session_state.translated_text)
         st.session_state.summarized_text = ""
+        speak(st.session_state.translated_text)  # Speak the translated text
 
 # Display Translated Text
 if st.session_state.translated_text:
@@ -137,6 +133,7 @@ if st.session_state.translated_text:
                 st.session_state.summarized_text = summarize_with_pyAutoSummarizer_ko(processed_text, stop_words_lang="ko")
             else:
                 st.session_state.summarized_text = summarize_with_pyAutoSummarizer_en(processed_text, stop_words_lang="en")
+            speak(st.session_state.summarized_text)  # Speak the summarized text
 
 # Display Summarized Text
 if st.session_state.summarized_text:
@@ -149,3 +146,4 @@ if st.session_state.summarized_text:
             tgt_lang = "ko" if st.session_state.lang_direction == "KO to EN" else "en"
             st.session_state.summarized_text = translate_text_google(st.session_state.summarized_text, src_lang, tgt_lang)
             st.session_state.summarized_text = add_spaces_between_sentences(st.session_state.summarized_text)
+            speak(st.session_state.summarized_text)  # Speak the translated summary
