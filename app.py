@@ -1,11 +1,15 @@
 import streamlit as st
 from googletrans import Translator
-from pyAutoSummarizer.base import summarization
+from transformers import T5ForConditionalGeneration, T5Tokenizer
 import re
 import time
 
 # Initialize the translator
 translator = Translator()
+
+# Load T5 model and tokenizer for summarization
+summarization_model = T5ForConditionalGeneration.from_pretrained("t5-small")
+summarization_tokenizer = T5Tokenizer.from_pretrained("t5-small")
 
 # Initialize session state with history and settings
 if "translated_text" not in st.session_state:
@@ -33,25 +37,15 @@ def translate_text_google(input_text, src_lang, tgt_lang):
         st.error(f"Translation service unavailable: {e}")
         return ""
 
-def summarize_with_pyAutoSummarizer(text, num_sentences=3, lang='en'):
+def summarize_with_t5(text, num_sentences=3):
     try:
-        parameters = {
-            'stop_words': [lang],
-            'n_words': -1,
-            'n_chars': -1,
-            'lowercase': True,
-            'rmv_accents': True,
-            'rmv_special_chars': True,
-            'rmv_numbers': False,
-            'rmv_custom_words': [],
-            'verbose': False
-        }
-        smr = summarization(text, **parameters)
-        rank = smr.summ_ext_LSA(embeddings=False, model='all-MiniLM-L6-v2')
-        summary = smr.show_summary(rank, n=num_sentences)
+        input_text = f"summarize: {text}"
+        inputs = summarization_tokenizer.encode(input_text, return_tensors="pt", max_length=512, truncation=True)
+        summary_ids = summarization_model.generate(inputs, max_length=150, num_beams=4, early_stopping=True)
+        summary = summarization_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         return summary
     except Exception as e:
-        st.error(f"Summarization failed due to text length or model error: {e}")
+        st.error(f"Summarization failed due to error: {e}")
         return ""
 
 # Streamlit UI Setup
@@ -106,11 +100,7 @@ if st.session_state.translated_text:
         if st.session_state.translated_text.strip():
             with st.spinner("Summarizing..."):
                 processed_text = add_spaces_between_sentences(st.session_state.translated_text)
-
-                if st.session_state.lang_direction == "EN to KO":
-                    st.session_state.summarized_text = summarize_with_pyAutoSummarizer(processed_text, lang="ko")
-                else:
-                    st.session_state.summarized_text = summarize_with_pyAutoSummarizer(processed_text, lang="en")
+                st.session_state.summarized_text = summarize_with_t5(processed_text, num_sentences=3)
                 
                 # Save summarized history
                 st.session_state.summarized_history.append(st.session_state.summarized_text)
